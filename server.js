@@ -141,10 +141,23 @@ app.post('/admin/bot/:action', adminAuth, async (req,res)=>{
   } catch(e){ return res.status(500).json({ ok:false, error:String(e) }); }
 });
 
-app.use(`/webhook/${WEBHOOK_SECRET}`, (req,res,next)=>{
-  if (req.method==='POST') return bot.webhookCallback(`/webhook/${WEBHOOK_SECRET}`)(req,res,next);
-  res.status(405).end();
+// Friendly homepage and favicon
+app.get('/', (_req, res) => {
+  res.type('html').send(
+    `<h1>TrustMe AI — Telegram Bot</h1>
+     <p><a href="/health">/health</a> • <a href="/admin">/admin</a></p>`
+  );
 });
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
+
+// Optional 405 for non-POST requests to webhook
+app.all(`/webhook/${WEBHOOK_SECRET}`, (req, res, next) => {
+  if (req.method !== 'POST') return res.status(405).end();
+  next();
+});
+
+// Let Telegraf handle the webhook path directly
+app.use(bot.webhookCallback(`/webhook/${WEBHOOK_SECRET}`));
 
 async function setupWebhook(){
   if (PUBLIC_URL){
