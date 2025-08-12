@@ -73,26 +73,26 @@ const userState = new Map();
 const defaultState = { mode:'perDay', amount:1000, dailyPct:2, perTradePct:1, tradesPerDay:5, days:30 };
 const getState = (chatId) => { if (!userState.has(chatId)) userState.set(chatId, { ...defaultState }); return userState.get(chatId); };
 
-bot.start(ctx => ctx.reply(`Welcome to TrustMe AI 📈
-Use:
-/mode perDay|perTrade
-/amount 1000
-/daily 2
-/pertrade 1
-/trades 5
-/days 30
-/log — projection table
-/graph — chart image`));
+// --- Styled help text (old-style bullets) ---
+const HELP_TEXT = `📘 Commands
+• /mode <perDay|perTrade> — switch mode
+• /amount <number> — set starting USDT
+• /daily <percent> — daily % (Per Day mode)
+• /pertrade <percent> — per‑trade % (Per Trade mode)
+• /trades <integer> — trades per day (Per Trade mode)
+• /days <1-120> — projection days
+• /log — projection table
+• /graph — projection chart
 
-bot.help(ctx => ctx.reply(`Commands:
-/mode perDay|perTrade
-/amount <number>
-/daily <percent>
-/pertrade <percent>
-/trades <integer>
-/days <1-120>
-/log
-/graph`));
+Tips:
+• Example: /mode perTrade
+• Example: /amount 1000
+• Example: /pertrade 1
+• Example: /trades 5
+• Example: /days 30`;
+
+bot.start(ctx => ctx.reply(HELP_TEXT));
+bot.command('help', ctx => ctx.reply(HELP_TEXT));
 
 bot.command('mode', ctx => { const v = ctx.message.text.split(/\s+/)[1]; if (!['perDay','perTrade'].includes(v)) return ctx.reply('Usage: /mode perDay|perTrade'); getState(ctx.chat.id).mode = v; ctx.reply(`Mode set to ${v}`); });
 bot.command('amount', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!isFinite(v) || v<=0) return ctx.reply('Usage: /amount 1000'); getState(ctx.chat.id).amount = v; ctx.reply(`Amount set to ${v}`); });
@@ -123,7 +123,6 @@ bot.command('graph', async ctx => {
     options:{ plugins:{ legend:{ labels:{ color:'#e5e7eb' }}},
               scales:{ x:{ ticks:{ color:'#9ca3af' }}, y:{ ticks:{ color:'#9ca3af' }}}}
   });
-  // Telegram accepts direct image URLs
   await ctx.replyWithPhoto(qc.getUrl(), { caption:`Projection ${s.days}d — start ${formatUSD(s.amount)}` });
 });
 

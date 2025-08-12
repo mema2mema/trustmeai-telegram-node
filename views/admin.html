@@ -28,6 +28,7 @@
     <div class="card">
       <h3>Webhook</h3>
       <p>Server uses webhook when <code>PUBLIC_URL</code> or <code>WEBHOOK_URL</code> is set. Path: <code>/webhook/&lt;WEBHOOK_SECRET&gt;</code></p>
+      <p><em>GET</em> on that path returns 405 — only Telegram POSTs are accepted.</p>
     </div>
     <div class="card">
       <h3>Test projection API</h3>
