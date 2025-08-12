@@ -5,16 +5,16 @@ import morgan from 'morgan';
 import cors from 'cors';
 import basicAuth from 'express-basic-auth';
 import { Telegraf } from 'telegraf';
-import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 import dayjs from 'dayjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import QuickChart from 'quickchart-js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// ---- ENV (compat names supported) ----
+// ENV (compat)
 const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-const PUBLIC_URL = process.env.PUBLIC_URL || process.env.WEBHOOK_URL; // no trailing slash
+const PUBLIC_URL = process.env.PUBLIC_URL || process.env.WEBHOOK_URL;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'hook';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin';
 const PORT = process.env.PORT || 3000;
@@ -33,7 +33,7 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('tiny'));
 
-// ---------- Projection core ----------
+// Projection
 function project({ amount, days, mode, dailyPct, perTradePct, tradesPerDay }) {
   amount = Number(amount || 0);
   days = Number(days || 0);
@@ -55,7 +55,7 @@ function project({ amount, days, mode, dailyPct, perTradePct, tradesPerDay }) {
 }
 const formatUSD = n => new Intl.NumberFormat('en-US', { style:'currency', currency:'USD', maximumFractionDigits: 2 }).format(Number(n||0));
 
-// ---------- Bot ----------
+// Bot
 const bot = new Telegraf(BOT_TOKEN);
 const userState = new Map();
 const defaultState = { mode:'perDay', amount:1000, dailyPct:2, perTradePct:1, tradesPerDay:5, days:30 };
@@ -97,23 +97,25 @@ bot.command('log', async ctx => {
   for (let i=0;i<msg.length;i+=3800) await ctx.reply('```\n'+msg.slice(i,i+3800)+'\n```',{parse_mode:'MarkdownV2'}).catch(()=>{});
 });
 
-const chartCanvas = new ChartJSNodeCanvas({ width: 900, height: 480, backgroundColour: 'transparent' });
+// Graph via QuickChart (no native builds needed)
 bot.command('graph', async ctx => {
   const s = getState(ctx.chat.id);
   const rows = project(s);
   const labels = rows.map(r=>r.day);
   const equity = rows.map(r=>r.end);
-  const cfg = {
+  const qc = new QuickChart();
+  qc.setWidth(900).setHeight(480).setBackgroundColor('transparent');
+  qc.setConfig({
     type:'line',
-    data:{ labels, datasets:[{ label:'Equity', data:equity, tension:0.2, borderColor:'#60a5fa' }]},
+    data:{ labels, datasets:[{ label:'Equity', data:equity, tension:0.2, borderColor:'#60a5fa', fill:false }]},
     options:{ plugins:{ legend:{ labels:{ color:'#e5e7eb' }}},
               scales:{ x:{ ticks:{ color:'#9ca3af' }}, y:{ ticks:{ color:'#9ca3af' }}}}
-  };
-  const png = await chartCanvas.renderToBuffer(cfg);
-  await ctx.replyWithPhoto({ source: png }, { caption:`Projection ${s.days}d — start ${formatUSD(s.amount)}` });
+  });
+  // Telegram accepts direct image URLs
+  await ctx.replyWithPhoto(qc.getUrl(), { caption:`Projection ${s.days}d — start ${formatUSD(s.amount)}` });
 });
 
-// ---------- Web server ----------
+// Web server
 app.get('/health', (_req,res)=>res.json({ ok:true, time:new Date().toISOString() }));
 
 app.get('/api/projection', (req,res)=>{
@@ -139,7 +141,6 @@ app.post('/admin/bot/:action', adminAuth, async (req,res)=>{
   } catch(e){ return res.status(500).json({ ok:false, error:String(e) }); }
 });
 
-// Webhook endpoint
 app.use(`/webhook/${WEBHOOK_SECRET}`, (req,res,next)=>{
   if (req.method==='POST') return bot.webhookCallback(`/webhook/${WEBHOOK_SECRET}`)(req,res,next);
   res.status(405).end();
