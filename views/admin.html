@@ -13,6 +13,7 @@
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     input{background:#0f172a;border:1px solid #334155;padding:8px 10px;border-radius:10px;color:#eaeaea;width:280px}
     code{background:#0f172a;padding:2px 6px;border-radius:7px;border:1px solid #24324a}
+    pre{white-space:pre-wrap}
   </style>
 </head>
 <body>
@@ -39,6 +40,25 @@
       </div>
       <pre id="out"></pre>
     </div>
+    <div class="card">
+      <h3>Wallet quick test</h3>
+      <div class="row">
+        <button id="bal">Get Balance</button>
+        <input id="amt" type="number" value="50" placeholder="amount">
+        <button id="dep">Deposit</button>
+        <button id="wd">Withdraw</button>
+        <button id="tx">Tx</button>
+      </div>
+      <pre id="wallet"></pre>
+    </div>
+    <div class="card">
+      <h3>Referral quick test</h3>
+      <div class="row">
+        <button id="mycode">My code</button>
+        <button id="mystats">My stats</button>
+      </div>
+      <pre id="ref"></pre>
+    </div>
   </div>
   <script>
     async function post(action){
@@ -55,6 +75,17 @@
       const j=await res.json();
       document.getElementById('out').textContent = JSON.stringify(j.slice(0,5),null,2) + (j.length>5?`\n... (${j.length} days)`:'');
     };
+
+    // Wallet
+    const W = (id, s)=>document.getElementById(id).textContent=s;
+    document.getElementById('bal').onclick = async ()=> W('wallet', JSON.stringify(await (await fetch('/api/wallet/balance')).json(),null,2));
+    document.getElementById('dep').onclick = async ()=> W('wallet', JSON.stringify(await (await fetch('/api/wallet/deposit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:Number(document.getElementById('amt').value)})})).json(),null,2));
+    document.getElementById('wd').onclick = async ()=> W('wallet', JSON.stringify(await (await fetch('/api/wallet/withdraw',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:Number(document.getElementById('amt').value)})})).json(),null,2));
+    document.getElementById('tx').onclick = async ()=> W('wallet', JSON.stringify(await (await fetch('/api/wallet/tx')).json(),null,2));
+
+    // Referral
+    document.getElementById('mycode').onclick = async ()=> W('ref', JSON.stringify(await (await fetch('/api/referral/my')).json(),null,2));
+    document.getElementById('mystats').onclick = async ()=> W('ref', JSON.stringify(await (await fetch('/api/referral/stats')).json(),null,2));
   </script>
 </body>
 </html>
