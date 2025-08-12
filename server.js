@@ -13,11 +13,11 @@ import QuickChart from 'quickchart-js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ENV (compat)
-const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
-const PUBLIC_URL = process.env.PUBLIC_URL || process.env.WEBHOOK_URL;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'hook';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'admin';
-const PORT = process.env.PORT || 3000;
+const BOT_TOKEN     = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+const PUBLIC_URL    = process.env.PUBLIC_URL || process.env.WEBHOOK_URL;
+const WEBHOOK_SECRET= process.env.WEBHOOK_SECRET || 'hook';
+const ADMIN_PASS    = process.env.ADMIN_PASS || 'admin';
+const PORT          = process.env.PORT || 3000;
 
 if (!BOT_TOKEN) {
   console.error('ERROR: BOT_TOKEN or TELEGRAM_BOT_TOKEN is required');
@@ -25,6 +25,10 @@ if (!BOT_TOKEN) {
 }
 console.log('[env] token from:', process.env.BOT_TOKEN ? 'BOT_TOKEN' : 'TELEGRAM_BOT_TOKEN');
 console.log('[env] public url from:', process.env.PUBLIC_URL ? 'PUBLIC_URL' : (process.env.WEBHOOK_URL ? 'WEBHOOK_URL' : 'not set -> polling'));
+
+const ADMIN_URL = (PUBLIC_URL || process.env.WEBHOOK_URL)
+  ? `${(PUBLIC_URL || process.env.WEBHOOK_URL)}/admin`
+  : null;
 
 const app = express();
 app.use(helmet());
@@ -89,10 +93,20 @@ Tips:
 • Example: /amount 1000
 • Example: /pertrade 1
 • Example: /trades 5
-• Example: /days 30`;
+• Example: /days 30
+• /admin — admin link (web)`;
 
 bot.start(ctx => ctx.reply(HELP_TEXT));
 bot.command('help', ctx => ctx.reply(HELP_TEXT));
+
+// Reply with admin link in Telegram
+bot.command('admin', (ctx) => {
+  if (ADMIN_URL) {
+    ctx.reply(`🔐 Admin panel:\n${ADMIN_URL}\nUser: admin`);
+  } else {
+    ctx.reply('🔐 Admin panel is web-only. Set PUBLIC_URL or WEBHOOK_URL, then open /admin in your browser.');
+  }
+});
 
 bot.command('mode', ctx => { const v = ctx.message.text.split(/\s+/)[1]; if (!['perDay','perTrade'].includes(v)) return ctx.reply('Usage: /mode perDay|perTrade'); getState(ctx.chat.id).mode = v; ctx.reply(`Mode set to ${v}`); });
 bot.command('amount', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!isFinite(v) || v<=0) return ctx.reply('Usage: /amount 1000'); getState(ctx.chat.id).amount = v; ctx.reply(`Amount set to ${v}`); });
@@ -163,13 +177,11 @@ app.post('/admin/bot/:action', adminAuth, async (req,res)=>{
   } catch(e){ return res.status(500).json({ ok:false, error:String(e) }); }
 });
 
-// Optional 405 for non-POST requests to webhook
+// Keep webhook POST-only (405 on GET is expected)
 app.all(`/webhook/${WEBHOOK_SECRET}`, (req, res, next) => {
   if (req.method !== 'POST') return res.status(405).end();
   next();
 });
-
-// Let Telegraf handle the webhook path directly
 app.use(bot.webhookCallback(`/webhook/${WEBHOOK_SECRET}`));
 
 async function setupWebhook(){
