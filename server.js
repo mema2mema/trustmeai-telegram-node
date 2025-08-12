@@ -12,14 +12,12 @@ import { fileURLToPath } from 'url'
 import QuickChart from 'quickchart-js'
 import { nanoid } from 'nanoid'
 
-// Local libs
-import { db, getOrCreateUserById, getOrCreateReferralFor, linkReferral, save } from './lib/db.js'
+import { getOrCreateUserById, linkReferral, save } from './lib/db.js'
 import { referralRoutes } from './lib/referral.js'
 import { walletRoutes } from './lib/wallet.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// ENV (compat)
 const BOT_TOKEN      = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN
 const PUBLIC_URL     = process.env.PUBLIC_URL || process.env.WEBHOOK_URL
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'hook'
@@ -47,14 +45,12 @@ app.use(cors({
   credentials: true
 }))
 
-// ----- Visitor cookie + referral capture -----
+// visitor cookie + referral capture
 app.use((req,res,next)=>{
-  // compute origin base for links
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https'
   const host = req.headers['x-forwarded-host'] || req.headers.host
   req.originBase = `${proto}://${host}`
 
-  // set or get visitor cookie
   let id = req.cookies?.tm_uid
   if (!id) {
     id = nanoid(10)
@@ -63,16 +59,12 @@ app.use((req,res,next)=>{
   req.visitorId = id
   getOrCreateUserById(id)
 
-  // referral capture (?ref=CODE)
   const ref = (req.query?.ref || '').toString().trim()
-  if (ref) {
-    linkReferral(id, ref.toUpperCase())
-    save().catch(()=>{})
-  }
+  if (ref) { linkReferral(id, ref.toUpperCase()); save().catch(()=>{}) }
   next()
 })
 
-// ===== Projection (same as before, used by Telegram) =====
+// projection util
 function project({ amount, days, mode, dailyPct, perTradePct, tradesPerDay }) {
   amount = Number(amount || 0)
   days = Number(days || 0)
@@ -92,13 +84,13 @@ function project({ amount, days, mode, dailyPct, perTradePct, tradesPerDay }) {
 }
 const formatUSD = n => new Intl.NumberFormat('en-US', { style:'currency', currency:'USD', maximumFractionDigits: 2 }).format(Number(n||0))
 
-// ===== Telegram Bot =====
+// bot
 const bot = new Telegraf(BOT_TOKEN)
 bot.use(async (ctx, next)=>{
   console.log('update:', ctx.updateType, ctx.message?.text || ctx.callbackQuery?.data || '')
   try{ await next() }catch(e){ console.error('handler error', e) }
 })
-bot.catch((err, ctx)=> console.error('Telegraf error', err))
+bot.catch((err)=> console.error('Telegraf error', err))
 
 const HELP_TEXT = `📘 Commands
 • /mode <perDay|perTrade> — switch mode
@@ -114,22 +106,19 @@ const HELP_TEXT = `📘 Commands
 bot.start(ctx => ctx.reply(HELP_TEXT))
 bot.command('help', ctx => ctx.reply(HELP_TEXT))
 bot.command('admin', ctx => ADMIN_URL ? ctx.reply(`🔐 Admin panel:\n${ADMIN_URL}\nUser: admin`) : ctx.reply('Admin is web-only; set PUBLIC_URL/WEBHOOK_URL'))
-
-bot.command('mode', ctx => { const v = ctx.message.text.split(/\s+/)[1]; if (!['perDay','perTrade'].includes(v)) return ctx.reply('Usage: /mode perDay|perTrade'); ctx.reply(`Mode set to ${v}`) })
-bot.command('amount', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!isFinite(v) || v<=0) return ctx.reply('Usage: /amount 1000'); ctx.reply(`Amount set to ${v}`) })
-bot.command('daily', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!isFinite(v) || v<0) return ctx.reply('Usage: /daily 2'); ctx.reply(`Daily % set to ${v}`) })
-bot.command('pertrade', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!isFinite(v) || v<0) return ctx.reply('Usage: /pertrade 1'); ctx.reply(`Per trade % set to ${v}`) })
-bot.command('trades', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!Number.isInteger(v) || v<=0) return ctx.reply('Usage: /trades 5'); ctx.reply(`Trades/day set to ${v}`) })
-bot.command('days', ctx => { const v = Number(ctx.message.text.split(/\s+/)[1]); if (!Number.isInteger(v) || v<1 || v>120) return ctx.reply('Usage: /days 30'); ctx.reply(`Projection days set to ${v}`) })
-
+bot.command('mode', ctx => ctx.reply('Mode set ✅'))
+bot.command('amount', ctx => ctx.reply('Amount set ✅'))
+bot.command('daily', ctx => ctx.reply('Daily % set ✅'))
+bot.command('pertrade', ctx => ctx.reply('Per trade % set ✅'))
+bot.command('trades', ctx => ctx.reply('Trades/day set ✅'))
+bot.command('days', ctx => ctx.reply('Projection days set ✅'))
 bot.command('log', async ctx=>{
   const s = { mode:'perDay', amount:1000, dailyPct:2, perTradePct:1, tradesPerDay:5, days:30 }
   const rows = project(s)
   const lines = rows.map(r => `${String(r.day).padStart(3,' ')} | start ${formatUSD(r.start)} | profit +${formatUSD(r.profit)} | end ${formatUSD(r.end)}`)
-  const msg = `TrustMe AI — Projection Log\n${dayjs().format('YYYY-MM-DD HH:mm')}\n\n${lines.join('\n')}`
+  const msg = `TrustMe AI — Projection Log\n${new Date().toISOString()}\n\n${lines.join('\n')}`
   for (let i=0;i<msg.length;i+=3800) await ctx.reply('```\n'+msg.slice(i,i+3800)+'\n```',{parse_mode:'MarkdownV2'}).catch(()=>{})
 })
-
 bot.command('graph', async ctx=>{
   const s = { mode:'perDay', amount:1000, dailyPct:2, perTradePct:1, tradesPerDay:5, days:30 }
   const rows = project(s)
@@ -140,15 +129,12 @@ bot.command('graph', async ctx=>{
   qc.setConfig({ type:'line', data:{ labels, datasets:[{ label:'Equity', data:equity, tension:0.2, borderColor:'#60a5fa', fill:false }]}})
   await ctx.replyWithPhoto(qc.getUrl(), { caption:`Projection ${s.days}d — start ${formatUSD(s.amount)}` })
 })
-
 bot.hears(/^[^/].+/, ctx=> ctx.reply('✅ Got it! Send /help for commands.'))
 
-// ===== Basic web pages =====
+// web
 app.get('/health', (_req,res)=>res.json({ ok:true, time:new Date().toISOString() }))
 app.get('/', (_req,res)=>res.type('html').send('<h2>TrustMe AI — API</h2><p><a href=/admin>/admin</a> • <a href=/health>/health</a></p>'))
 app.get('/favicon.ico', (_req,res)=>res.status(204).end())
-
-// ===== Public API (projection) =====
 app.get('/api/projection', (req,res)=>{
   const params = {
     mode: req.query.mode || 'perDay',
@@ -161,12 +147,7 @@ app.get('/api/projection', (req,res)=>{
   res.json(project(params))
 })
 
-// ===== Admin =====
-import fs from 'fs'
-import url from 'url'
-import { fileURLToPath as furl } from 'url'
-import { dirname as dname } from 'path'
-import basicAuth from 'express-basic-auth'
+// admin
 const adminAuth = basicAuth({ users:{ admin: ADMIN_PASS }, challenge:true })
 app.get('/admin', adminAuth, (_req,res)=>res.sendFile(path.join(__dirname,'views','admin.html')))
 app.post('/admin/bot/:action', adminAuth, async (req,res)=>{
@@ -178,11 +159,11 @@ app.post('/admin/bot/:action', adminAuth, async (req,res)=>{
   }catch(e){ return res.status(500).json({ ok:false, error:String(e) }) }
 })
 
-// ===== Wallet & Referral APIs =====
+// apis
 referralRoutes(app)
 walletRoutes(app)
 
-// ===== Webhook =====
+// webhook
 app.all(`/webhook/${WEBHOOK_SECRET}`, (req,res,next)=>{
   if (req.method !== 'POST') return res.status(405).end()
   next()

@@ -1,13 +1,12 @@
 # TrustMe AI — Phase 2 Frontend Snippets
 
-## 1) Referral capture (paste in `<head>` or before `</body>` on trustmeai.online)
+## 1) Referral capture (paste near </body> on trustmeai.online)
 ```html
 <script>
 (function(){
   const qs = new URLSearchParams(location.search);
   const ref = qs.get('ref');
   if (ref) localStorage.setItem('tm_ref', ref);
-  // Also bind with API (stores click/signup)
   fetch('/api/referral/bind', {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
@@ -17,7 +16,7 @@
 </script>
 ```
 
-## 2) Referral link UI (where your "Referral" section is)
+## 2) Referral link UI
 ```html
 <div class="ref-card">
   <label>Your link</label>
@@ -72,4 +71,4 @@ wRefresh();
 </script>
 ```
 
-> Note: This wallet & referrals are **mock/demo** and use a JSON file on the server. They reset when the Railway container is rebuilt.
+> Note: This wallet & referrals are **mock/demo** (JSON file). Re-deploying the container resets the data.
