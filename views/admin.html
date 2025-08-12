@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TrustMe AI — Admin</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#0b0b0f;color:#eaeaea;margin:0}
+    .wrap{max-width:880px;margin:40px auto;padding:0 16px}
+    .card{background:#13131a;border:1px solid #23232c;border-radius:14px;padding:16px;margin:12px 0}
+    button{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
+    button.secondary{background:#1f2937;border:1px solid #334155}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input{background:#0f172a;border:1px solid #334155;padding:8px 10px;border-radius:10px;color:#eaeaea;width:280px}
+    code{background:#0f172a;padding:2px 6px;border-radius:7px;border:1px solid #24324a}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TrustMe AI — Admin</h1>
+
+    <div class="card">
+      <div class="row">
+        <button id="start">Start Bot</button>
+        <button id="stop" class="secondary">Stop Bot</button>
+        <span id="status"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Webhook</h3>
+      <p>Server uses webhook when <code>PUBLIC_URL</code> or <code>WEBHOOK_URL</code> is set. Path: <code>/webhook/&lt;WEBHOOK_SECRET&gt;</code></p>
+    </div>
+
+    <div class="card">
+      <h3>Test projection API</h3>
+      <div class="row">
+        <input id="amount" type="number" value="1000" placeholder="amount">
+        <input id="days" type="number" value="30" placeholder="days">
+        <button id="test">Run</button>
+      </div>
+      <pre id="out"></pre>
+    </div>
+  </div>
+  <script>
+    async function post(action){
+      const res = await fetch('/admin/bot/' + action, { method:'POST' });
+      const j = await res.json();
+      document.getElementById('status').textContent = JSON.stringify(j);
+    }
+    document.getElementById('start').onclick=()=>post('start');
+    document.getElementById('stop').onclick =()=>post('stop');
+    document.getElementById('test').onclick = async ()=>{
+      const a=document.getElementById('amount').value;
+      const d=document.getElementById('days').value;
+      const res=await fetch(`/api/projection?amount=${a}&days=${d}`);
+      const j=await res.json();
+      document.getElementById('out').textContent = JSON.stringify(j.slice(0,5),null,2) + (j.length>5?`\n... (${j.length} days)`:'');
+    };
+  </script>
+</body>
+</html>
