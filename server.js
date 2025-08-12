@@ -57,6 +57,18 @@ const formatUSD = n => new Intl.NumberFormat('en-US', { style:'currency', curren
 
 // Bot
 const bot = new Telegraf(BOT_TOKEN);
+
+// --- Debug logging ---
+bot.use(async (ctx, next) => {
+  console.log('update:', ctx.updateType, ctx.message?.text || ctx.callbackQuery?.data || '');
+  try { await next(); } catch (err) {
+    console.error('handler error:', err);
+  }
+});
+bot.catch((err, ctx) => {
+  console.error('Telegraf error for update', ctx.update?.update_id, err);
+});
+
 const userState = new Map();
 const defaultState = { mode:'perDay', amount:1000, dailyPct:2, perTradePct:1, tradesPerDay:5, days:30 };
 const getState = (chatId) => { if (!userState.has(chatId)) userState.set(chatId, { ...defaultState }); return userState.get(chatId); };
@@ -115,8 +127,19 @@ bot.command('graph', async ctx => {
   await ctx.replyWithPhoto(qc.getUrl(), { caption:`Projection ${s.days}d — start ${formatUSD(s.amount)}` });
 });
 
+// Friendly catch‑all (only non-commands)
+bot.hears(/^[^/].+/, ctx => ctx.reply('✅ Got it! Send /help for commands.'));
+
 // Web server
 app.get('/health', (_req,res)=>res.json({ ok:true, time:new Date().toISOString() }));
+
+app.get('/', (_req, res) => {
+  res.type('html').send(
+    `<h1>TrustMe AI — Telegram Bot</h1>
+     <p><a href="/health">/health</a> • <a href="/admin">/admin</a></p>`
+  );
+});
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 app.get('/api/projection', (req,res)=>{
   const params = {
@@ -140,15 +163,6 @@ app.post('/admin/bot/:action', adminAuth, async (req,res)=>{
     return res.status(400).json({ ok:false, error:'unknown action' });
   } catch(e){ return res.status(500).json({ ok:false, error:String(e) }); }
 });
-
-// Friendly homepage and favicon
-app.get('/', (_req, res) => {
-  res.type('html').send(
-    `<h1>TrustMe AI — Telegram Bot</h1>
-     <p><a href="/health">/health</a> • <a href="/admin">/admin</a></p>`
-  );
-});
-app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 // Optional 405 for non-POST requests to webhook
 app.all(`/webhook/${WEBHOOK_SECRET}`, (req, res, next) => {

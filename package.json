@@ -1,7 +1,7 @@
 {
   "name": "trustmeai-telegram-node-lite",
-  "version": "1.0.1",
-  "description": "TrustMe AI Telegram bot (Node only, QuickChart graphs, Railway-ready)",
+  "version": "1.0.2",
+  "description": "TrustMe AI Telegram bot (Node only, QuickChart, webhook-ready, with debug logging)",
   "main": "server.js",
   "type": "module",
   "scripts": {
